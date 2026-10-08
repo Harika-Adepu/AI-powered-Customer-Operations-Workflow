@@ -56,8 +56,6 @@ The project uses database tables to store:
 
 The Next.js dashboard reads this data from Supabase to display the current state of customer operations.
 
-```
-
 ## Setup
 
 ```bash
