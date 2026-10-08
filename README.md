@@ -38,24 +38,24 @@ support-dashboard/
 └── README.md
 ```
 
-## n8n
+## n8n Workflow
 
-The n8n workflow handles the automation, AI processing, decision-making, and database updates.
+The file `n8nworkflow.json` contains the complete n8n automation workflow used in this project. It handles customer request processing, AI analysis, decision-making, human review, and database updates.
 
-Export the workflow from n8n and save it in:
+The workflow can be imported directly into n8n to recreate the automation.
 
-```text
-n8n/customer-operations-workflow.json
-```
+## Supabase Database
 
-## Supabase
+Supabase is used to store and manage customer request data and workflow status.
 
-Supabase stores customer requests and their processing status.
+The project uses database tables to store:
 
-Database-related SQL can be stored in:
+* **Customer Requests** – customer details, request information, priority, and status.
+* **Workflow/Processing Data** – AI analysis, decisions, and processing results.
+* **Human Review Data** – requests that require manual review and their review status.
 
-```text
-supabase/schema.sql
+The Next.js dashboard reads this data from Supabase to display the current state of customer operations.
+
 ```
 
 ## Setup
