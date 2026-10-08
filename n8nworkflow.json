@@ -1,0 +1,639 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "in:inbox -from:me",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "00923d3e-4d9c-442e-9671-75f990660991",
+      "name": "Gmail - Receive Customer Request",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -80,
+        -448
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7Acat1DkVZABeXDp",
+          "name": "info@scalepods.co"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "customer_name",
+              "type": "string",
+              "value": "={{ $json.from?.value?.[0]?.name || \"\" }}"
+            },
+            {
+              "id": "a2",
+              "name": "customer_email",
+              "type": "string",
+              "value": "={{ ($json.from?.value?.[0]?.address || \"\").toLowerCase() }}"
+            },
+            {
+              "id": "a3",
+              "name": "subject",
+              "type": "string",
+              "value": "={{ $json.subject || \"(no subject)\" }}"
+            },
+            {
+              "id": "a4",
+              "name": "body",
+              "type": "string",
+              "value": "={{ $json.text || $json.snippet || \"\" }}"
+            },
+            {
+              "id": "a5",
+              "name": "message_id",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "a6",
+              "name": "ops_email",
+              "type": "string",
+              "value": "harika@scalepods.co"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "149d2307-7f91-4656-9c2b-cb8f60d938d8",
+      "name": "Extract Customer Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        144,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "requests",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_email",
+              "fieldValue": "={{ $json.customer_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $json.body }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "received"
+            }
+          ]
+        }
+      },
+      "id": "4b3d7e42-a40c-42b0-b28a-13766f21d77e",
+      "name": "Supabase - Create Request",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -448
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4yPUpOxayFVVvUZX",
+          "name": "supabase x n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Extract Customer Request\").item.json.customer_email }}"
+            }
+          ]
+        }
+      },
+      "id": "393bbce5-df10-4d28-8a16-019ac75f7e6e",
+      "name": "Supabase - Find Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        592,
+        -448
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4yPUpOxayFVVvUZX",
+          "name": "supabase x n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "claude-haiku-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=CUSTOMER CONTEXT:\n{{ $(\"Supabase - Find Customer\").item.json.id ? \"Existing customer. Name: \" + $(\"Supabase - Find Customer\").item.json.name + \". Type: \" + $(\"Supabase - Find Customer\").item.json.customer_type + \".\" : \"No customer record found (new or unknown customer).\" }}\n\nEMAIL:\nFrom: {{ $(\"Extract Customer Request\").item.json.customer_name }} <{{ $(\"Extract Customer Request\").item.json.customer_email }}>\nSubject: {{ $(\"Extract Customer Request\").item.json.subject }}\nBody: {{ $(\"Extract Customer Request\").item.json.body }}"
+            }
+          ]
+        },
+        "options": {
+          "system": "You are a customer support triage assistant. Read the customer email and customer context, then reply with ONE JSON object and nothing else (no markdown, no code fences). Required keys and allowed values: - \"intent\": one of \"order_status\", \"refund_request\", \"product_question\", \"complaint\", \"other\" - \"priority\": one of \"low\", \"medium\", \"high\", \"urgent\" - \"sentiment\": one of \"positive\", \"neutral\", \"negative\" - \"summary\": string, max 2 sentences - \"recommended_action\": string, one clear next step - \"requires_human\": boolean. Use true for refund requests, complaints, angry or urgent customers, legal/safety topics, VIP customers with problems, or when you are unsure. Use false only for simple questions or status requests that a polite reply can fully handle. - \"missing_information\": string describing missing information (empty string \"\" if nothing is missing) Output must be valid JSON only.",
+          "maxTokens": 1024
+        }
+      },
+      "id": "c618efc5-295a-4f4e-89d3-d89e5090a1e5",
+      "name": "Claude - Analyze Request",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        816,
+        -448
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "s7gqCrDHYEIhZijT",
+          "name": "ScalePods Info trainee"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $input.item.json;\nconst blocks = Array.isArray(raw.content) ? raw.content : [];\nconst text = (blocks.find(c => c.type === 'text') || {}).text || '';\nconst clean = text.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nlet a;\ntry { a = JSON.parse(clean); } catch (e) { throw new Error('Invalid AI response: not valid JSON. Got: ' + clean.slice(0, 200)); }\nconst intents = ['order_status', 'refund_request', 'product_question', 'complaint', 'other'];\nconst priorities = ['low', 'medium', 'high', 'urgent'];\nconst sentiments = ['positive', 'neutral', 'negative'];\nif (!intents.includes(a.intent)) throw new Error('Invalid AI response: bad intent ' + a.intent);\nif (!priorities.includes(a.priority)) throw new Error('Invalid AI response: bad priority ' + a.priority);\nif (!sentiments.includes(a.sentiment)) throw new Error('Invalid AI response: bad sentiment ' + a.sentiment);\nif (typeof a.requires_human !== 'boolean') throw new Error('Invalid AI response: requires_human must be boolean');\nif (typeof a.summary !== 'string' || typeof a.recommended_action !== 'string') throw new Error('Invalid AI response: summary/recommended_action missing');\nconst missing = Array.isArray(a.missing_information) ? a.missing_information.join(', ') : (typeof a.missing_information === 'string' ? a.missing_information : '');\nconst out = {\n  request_id: $('Supabase - Create Request').item.json.id,\n  intent: a.intent,\n  priority: a.priority,\n  sentiment: a.sentiment,\n  summary: a.summary,\n  recommended_action: a.recommended_action,\n  requires_human: a.requires_human,\n  missing_information: missing,\n  status: a.requires_human ? 'waiting_for_human' : 'processing',\n  updated_at: new Date().toISOString(),\n};\nconst cust = $('Supabase - Find Customer').item.json;\nif (cust && cust.id) out.customer_id = cust.id;\nreturn { json: out };"
+      },
+      "id": "215758a8-3d38-4e59-b791-6c0b5a5c5734",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "requests",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.request_id }}"
+            }
+          ]
+        },
+        "dataToSend": "autoMapInputData",
+        "inputsToIgnore": "request_id"
+      },
+      "id": "f37439a2-fb34-44b2-971d-acea7bea27f2",
+      "name": "Supabase - Save AI Analysis",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        -448
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4yPUpOxayFVVvUZX",
+          "name": "supabase x n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "claude-haiku-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Customer name: {{ $(\"Extract Customer Request\").item.json.customer_name || \"Customer\" }}\nOriginal subject: {{ $(\"Extract Customer Request\").item.json.subject }}\nOriginal message: {{ $(\"Extract Customer Request\").item.json.body }}\nIssue summary: {{ $(\"Parse AI Response\").item.json.summary }}\nRecommended action: {{ $(\"Parse AI Response\").item.json.recommended_action }}\nMissing information to ask for: {{ $(\"Parse AI Response\").item.json.missing_information || \"none\" }}\n\nWrite the reply email now."
+            }
+          ]
+        },
+        "options": {
+          "system": "You write short, polite, professional customer support replies from the ScalePods support team. Plain text only, no subject line. Address the customer by name if known. Do not invent order details, tracking numbers, refunds or policies; if something is unknown, say the team is checking, or ask for the missing information. Sign off as \"Customer Support Team\".",
+          "maxTokens": 600
+        }
+      },
+      "id": "06b62718-b90d-4a5f-b936-d70cd89282b3",
+      "name": "Claude - Generate Customer Response",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        -448
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "s7gqCrDHYEIhZijT",
+          "name": "ScalePods Info trainee"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $(\"Parse AI Response\").item.json.requires_human }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3faac378-6d71-4f19-9320-1b67611be540",
+      "name": "IF - Human Review Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1968,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $(\"Extract Customer Request\").first().json.ops_email }}",
+        "subject": "=[Action needed] {{ $(\"Parse AI Response\").first().json.priority.toUpperCase() }} - {{ $(\"Extract Customer Request\").first().json.subject }}",
+        "message": "=A customer request needs human review.\n\nFrom: {{ $(\"Extract Customer Request\").first().json.customer_name }} <{{ $(\"Extract Customer Request\").first().json.customer_email }}>\nRequest ID: {{ $(\"Parse AI Response\").first().json.request_id }}\nIntent: {{ $(\"Parse AI Response\").first().json.intent }} | Priority: {{ $(\"Parse AI Response\").first().json.priority }} | Sentiment: {{ $(\"Parse AI Response\").first().json.sentiment }}\nSummary: {{ $(\"Parse AI Response\").first().json.summary }}\nRecommended action: {{ $(\"Parse AI Response\").first().json.recommended_action }}\nMissing information: {{ $(\"Parse AI Response\").first().json.missing_information || \"none\" }}\n\n--- Proposed reply to customer ---\n{{ $(\"Claude - Generate Customer Response\").first().json.content.find(c => c.type === \"text\")?.text }}\n\nClick Approve to send this reply to the customer, or Decline to keep the request in manual review.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Approve & Send"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 24
+            }
+          }
+        }
+      },
+      "id": "e3736e72-f345-4ddb-832f-70636a888602",
+      "name": "Gmail - Send Approval Request to Ops",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2192,
+        -368
+      ],
+      "webhookId": "8b390e7f-fef1-44dc-8d56-3a32c2c585e1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7Acat1DkVZABeXDp",
+          "name": "info@scalepods.co"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8e8a7e2-0d62-483a-aab9-62b6b05ba7c2",
+      "name": "IF - Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2416,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $(\"Extract Customer Request\").first().json.message_id }}",
+        "emailType": "text",
+        "message": "={{ $(\"Claude - Generate Customer Response\").first().json.content.find(c => c.type === \"text\")?.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "88b57b7b-67a5-445b-9182-795f886ae099",
+      "name": "Gmail - Send Customer Response",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        -448
+      ],
+      "webhookId": "e04b36f3-15d9-4839-9b8a-e7d814a37983",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7Acat1DkVZABeXDp",
+          "name": "info@scalepods.co"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "requests",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Parse AI Response\").first().json.request_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "b0526bfb-1df6-4384-9901-022be53a627f",
+      "name": "Supabase - Update Request Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        -448
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4yPUpOxayFVVvUZX",
+          "name": "supabase x n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "activity_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "request_id",
+              "fieldValue": "={{ $(\"Parse AI Response\").first().json.request_id }}"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "response_sent"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "Customer response sent successfully."
+            }
+          ]
+        }
+      },
+      "id": "1ea08a66-06f6-424c-b473-c2056b771621",
+      "name": "Supabase - Log Activity",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3088,
+        -448
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4yPUpOxayFVVvUZX",
+          "name": "supabase x n8n"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail - Receive Customer Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Customer Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Customer Request": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Create Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Create Request": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Find Customer": {
+      "main": [
+        [
+          {
+            "node": "Claude - Analyze Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Analyze Request": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Save AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Save AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Claude - Generate Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Generate Customer Response": {
+      "main": [
+        [
+          {
+            "node": "IF - Human Review Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Human Review Required?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Send Approval Request to Ops",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Send Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Approval Request to Ops": {
+      "main": [
+        [
+          {
+            "node": "IF - Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Approved?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Send Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Customer Response": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Update Request Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Update Request Status": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Log Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "11e350345aae172743fe2665ba36f76304fbd6b68282474d7d08206f6a010061"
+  }
+}
