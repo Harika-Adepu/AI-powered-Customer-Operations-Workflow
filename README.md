@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI-Powered Customer Operations Workflow
 
-## Getting Started
+An AI-powered customer support automation system that receives customer requests, analyzes their intent, urgency, and details using AI, and determines the appropriate next step. Requests that can be handled automatically are processed through the workflow, while requests requiring human attention are routed for review. The system uses n8n for automation, Supabase for storing request data and status, and a Next.js dashboard for monitoring and managing customer requests.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+* **Next.js** – Customer operations dashboard
+* **n8n** – Workflow automation
+* **Supabase** – Database
+* **AI/LLM** – Request analysis and classification
+
+## How It Works
+
+```text
+Customer Request
+       ↓
+      n8n
+       ↓
+      AI
+       ↓
+Decision
+ ↓           ↓
+Auto Action  Human Review
+       ↓
+   Supabase
+       ↓
+   Dashboard
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project Structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+support-dashboard/
+├── app/                 # Next.js frontend
+├── components/          # UI components
+├── n8n/                 # n8n workflow JSON
+├── supabase/             # Database schema
+└── README.md
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## n8n
 
-## Learn More
+The n8n workflow handles the automation, AI processing, decision-making, and database updates.
 
-To learn more about Next.js, take a look at the following resources:
+Export the workflow from n8n and save it in:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+n8n/customer-operations-workflow.json
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Supabase
 
-## Deploy on Vercel
+Supabase stores customer requests and their processing status.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Database-related SQL can be stored in:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+supabase/schema.sql
+```
+
+## Setup
+
+```bash
+npm install
+npm run dev
+```
+
+Add your Supabase credentials to `.env.local`.
